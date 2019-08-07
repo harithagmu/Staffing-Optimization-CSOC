@@ -1,0 +1,7 @@
+C:\Work\APPLIED STAT\garry\ProjectGK\bin\Debug\ProjectGK.exe.config
+C:\Work\APPLIED STAT\garry\ProjectGK\bin\Debug\ProjectGK.exe
+C:\Work\APPLIED STAT\garry\ProjectGK\bin\Debug\ProjectGK.pdb
+C:\Work\APPLIED STAT\garry\ProjectGK\obj\Debug\ProjectGK.exe
+C:\Work\APPLIED STAT\garry\ProjectGK\obj\Debug\ProjectGK.pdb
+C:\Work\APPLIED STAT\garry\ProjectGK\obj\Debug\ProjectGK.csprojAssemblyReference.cache
+C:\Work\APPLIED STAT\garry\ProjectGK\obj\Debug\ProjectGK.csproj.CoreCompileInputs.cache
