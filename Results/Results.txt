@@ -1,0 +1,2 @@
+The code was run for 5 days, 50 days and 6 months.
+Each run generates a txt file and an excel file sheet.
