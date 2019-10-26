@@ -89,32 +89,31 @@ namespace ProjectGK
     //task class - task table - to create tasks at the beginning and update the same at eod 
     class Work
     {
-        private string _level;
         private string _status;
         private int _sla;
         private int _eA;
         private int _eB;
         private int _eC;
-        private int _workdone;
+        private int _startDay;
         private int _remaining;
-        private bool _processed;
         private bool _isParallel;
-        private int _currenttaskEffort;
-        private int _teamFlagSeq;
-        public Work(int Id, string level, int sla, int eA, int eB, int eC, int worked, string status)
+        private int _currenttask;
+        public Work(int Id, bool isParallel, string level, int sla, int eA, int eB, int eC, int startDay, string status, int currentTask)
         {
             ID = Id;
+            IsParallel = isParallel;
             Level = level;
             SLA = sla;
             effortA = eA;
             effortB = eB;
             effortC = eC;
-            WorkedAnalystDays = worked;
+            StartDay = startDay;
             Taskstatus = status;
-            IsNew = true;
+            //IsNew = true;
+            CurrentTask = currentTask;
         }
         public int ID { get; set; }
-        public Boolean IsParallel
+        public bool IsParallel
         {
             get
             {
@@ -125,28 +124,17 @@ namespace ProjectGK
                 _isParallel = value;
             }
         }
-        public int currentTaskEffort
+        public int CurrentTask
         {
             get
             {
-                return _currenttaskEffort;
+                return _currenttask;
             }
             set
             {
-                _currenttaskEffort = value;
+                _currenttask = value;
             }
 
-        }
-        public int sequentialTeamFlag
-        {
-            get
-            {
-                return _teamFlagSeq;
-            }
-            set
-            {
-                _teamFlagSeq = value;
-            }
         }
         public string Taskstatus
         {
@@ -160,18 +148,7 @@ namespace ProjectGK
                 _status = value;
             }
         }
-        public string Level
-        {
-            get
-            {
-                return _level;
-
-            }
-            set
-            {
-                _level = value;
-            }
-        }
+        public string Level { get; set; }
         public int SLA
         {
             get
@@ -216,15 +193,15 @@ namespace ProjectGK
                 _eC = value;
             }
         }
-        public int WorkedAnalystDays
+        public int StartDay
         {
             get
             {
-                return _workdone;
+                return _startDay;
             }
             set
             {
-                _workdone = value;
+                _startDay = value;
             }
         }
         public int RemainingWork
@@ -238,20 +215,8 @@ namespace ProjectGK
                 _remaining = value;
             }
         }
-        public bool IsNew
-        {
-            get
-            {
-                return _processed;
-            }
-            set
-            {
-                _processed = value;
-            }
-        }
+        
     }
-    //not required now
-    
     
     public class Program
     {
@@ -320,21 +285,23 @@ namespace ProjectGK
             //sqlconnection.Open();
             PrepareTables(sqlconnection);
 
-            //int tasks = Convert.ToInt32(Console.ReadLine());
+            //READ FROM EXCEL
+            string con =
+            @"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + outputfilepath + @"\Bigdump_1.xlsx;" +
+            @"Extended Properties='Excel 8.0;HDR=Yes;'";
+            
             //loop through eaxh day. I hardcoded 6. May extend to any number 
             for (int d = 1; d <= daycount; d++)
             {
                 csv.AppendLine("Day " + d);
                 string workstartstatus = "New";
-                //READ FROM EXCEL
-                string con =
-                @"Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + outputfilepath + @"\DailydumpM.xlsx;" +
-                @"Extended Properties='Excel 8.0;HDR=Yes;'";
+                
                 using (OleDbConnection connection = new OleDbConnection(con))
                 {
+                    #region Reading from Excel by page
                     connection.Open();
                     string sheetname = "Day" + d;
-                    string query = string.Format(@"Select * From [{0}]", sheetname + "$");
+                    string query = string.Format(@"Select * From [Bigdump_1$] where startDay = {0}", d);
                     OleDbCommand command = new OleDbCommand(query, connection); //new OleDbCommand("select * from [Sheet1$]", connection);
                     using (OleDbDataReader dr = command.ExecuteReader())
                     {
@@ -342,7 +309,9 @@ namespace ProjectGK
                         {
                             if (!DBNull.Value.Equals(dr[0]))
                             {
-                                sqlquery = string.Format("Insert into TaskData(TaskID, CriticalityLevel, SLA, EffortA, EffortB, EffortC, StartDay, TaskStatus, IsParallel) values('{0}',\"{1}\", '{2}', '{3}','{4}','{5}','{6}', \"{7}\")", Convert.ToInt32(dr[0]), dr[1].ToString(), Convert.ToInt32(dr[2]), Convert.ToInt32(dr[3]), Convert.ToInt32(dr[4]), Convert.ToInt32(dr[5]), d, Convert.ToBoolean(string.Compare(dr[6].ToString(), "concurrent", true)) ? "New" : "NewT1", Convert.ToBoolean(string.Compare(dr[6].ToString(), "concurrent", true)) ? true : false);
+                                //sqlquery = string.Format("Insert into TaskData(TaskID, CriticalityLevel, SLA, EffortA, EffortB, EffortC, StartDay, TaskStatus, IsParallel) values('{0}',\"{1}\", '{2}', '{3}','{4}','{5}','{6}', \"{7}\", \"{8}\")", Convert.ToInt32(dr[0]), dr[1].ToString(), Convert.ToInt32(dr[2]), Convert.ToInt32(dr[3]), Convert.ToInt32(dr[4]), Convert.ToInt32(dr[5]), d, Convert.ToBoolean(string.Compare(dr[6].ToString(), "concurrent", true)) ? "New" : "NewT1", Convert.ToBoolean(string.Compare(dr[6].ToString(), "concurrent", true)) ? true : false);
+                                sqlquery = string.Format("Insert into TaskData(TaskID, CriticalityLevel, SLA, EffortA, EffortB, EffortC, StartDay, TaskStatus, IsParallel, CurrentTask) values('{0}',\"{1}\", '{2}', '{3}','{4}','{5}','{6}', \"{7}\", {8}, 0)", Convert.ToInt32(dr[0]), dr[1].ToString(), Convert.ToInt32(dr[2]), Convert.ToInt32(dr[3]), Convert.ToInt32(dr[4]), Convert.ToInt32(dr[5]), d, workstartstatus, Convert.ToBoolean(string.Compare(dr[6].ToString(), "concurrent", true) == 0) ? 1 : 0);
+
                                 MySqlCommand cmd = new MySqlCommand(sqlquery, sqlconnection);
                                 cmd.ExecuteNonQuery();
                                 sqlquery = string.Format("Insert into TaskAnalystMap(TaskID, Team1, Team2, Team3) values('{0}', 0, 0, 0)", Convert.ToInt32(dr[0]));
@@ -354,111 +323,114 @@ namespace ProjectGK
                         }
                     }
                     connection.Close();
+                    #endregion Reading from Excel by page
                 }
+
+                #region Collect free analysts start of the day
                 FreeAnalystsT1 = ReturnAnalystID(sqlconnection, 0, "T1");
                 FreeAnalystsT2 = ReturnAnalystID(sqlconnection, 0, "T2");
                 FreeAnalystsT3 = ReturnAnalystID(sqlconnection, 0, "T3");
-
+                #endregion Collect free analysts start of the day
 
                 //GH:Loop through each work and assign analysts based on the effort required from each team and SLA 
-
+                #region New Tasks
                 List<Work> newTasks = ReturnTaskList(sqlconnection, "New");
                 foreach (Work nw in newTasks)
-                {
-                    int effortoft1 = nw.effortA;
-                    int effortoft2 = nw.effortB;
-                    int effortoft3 = nw.effortC;
-                    int maxEffort = Math.Max(effortoft1, Math.Max(effortoft2, effortoft3));
+                {                    
+                    double effortoft1 = nw.effortA;
+                    double effortoft2 = nw.effortB;
+                    double effortoft3 = nw.effortC;
+                    //double maxEffort = Math.Max(effortoft1, Math.Max(effortoft2, effortoft3));
                     string sqteam = string.Empty;
                     if (nw.IsParallel == true)
                     {
                         if (effortoft1 > 0)
-                            CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + "_T1", true, "T1", nw.ID.ToString(), d);
+                            CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + "0_T1", true, "T1", nw.ID.ToString(), d);
                         if (effortoft2 > 0)
-                            CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + "_T2", true, "T2", nw.ID.ToString(), d);
+                            CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + "0_T2", true, "T2", nw.ID.ToString(), d);
                         if (effortoft3 > 0)
-                            CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + "_T3", true, "T3", nw.ID.ToString(), d);
-                        int counter1 = 0, counter2 = 0, counter3 = 0;
-                        double effortDivided;
-                        int initfactor = 1;
-                        int factor = 2;
-                        while (nw.SLA < maxEffort)
+                            CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + "0_T3", true, "T3", nw.ID.ToString(), d);
+                        
+                        double effortDivided;                        
+                        double[] ne = new double[3] { 1, 1, 1 };
+                        double[] tempeffort = new double[3] { effortoft1, effortoft2, effortoft3 };
+                       
+                        while (tempeffort[0] > nw.SLA)
                         {
-                            if (maxEffort == effortoft1)
-                            {
-                                CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + counter1 + "_T1", true, "T1", nw.ID.ToString(), d);
-                                effortDivided = (double)(effortoft1 * initfactor) / factor;
-                                effortoft1 = Convert.ToInt32(Math.Ceiling(effortDivided));
-                            }
-                            else if (maxEffort == effortoft2)
-                            {
-                                CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + counter2 + "_T2", true, "T2", nw.ID.ToString(), d);
-                                effortDivided = (double)(effortoft2 * initfactor) / factor;
-                                effortoft2 = Convert.ToInt32(Math.Ceiling(effortDivided));
-                            }
-                            else if (maxEffort == effortoft3)
-                            {
-                                CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + counter3 + "_T3", true, "T3", nw.ID.ToString(), d);
-                                effortDivided = (double)(effortoft3 * initfactor) / factor;
-                                effortoft3 = Convert.ToInt32(Math.Ceiling(effortDivided));
-                            }
-                            factor++;
-                            initfactor++;
-                            maxEffort = Math.Max(effortoft1, Math.Max(effortoft2, effortoft3));
+                            CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + Convert.ToInt32(ne[0]) + "_T1", true, "T1", nw.ID.ToString(), d);
+                            ne[0] = ne[0] + 1; //2 analysts
+                            effortDivided = Convert.ToDouble(effortoft1 / ne[0]);
+                            tempeffort[0] = Math.Ceiling(effortDivided);                            
                         }
+                        while (tempeffort[1] > nw.SLA)
+                        {
+                            CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + Convert.ToInt32(ne[1]) + "_T2", true, "T2", nw.ID.ToString(), d);
+                            ne[1] = ne[1] + 1; //2 analysts
+                            effortDivided = Convert.ToDouble(effortoft2 / ne[1]);
+                            tempeffort[1] = Math.Ceiling(effortDivided);
+                        }
+                        while (tempeffort[2] > nw.SLA)
+                        {
+                            CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + Convert.ToInt32(ne[2]) + "_T3", true, "T3", nw.ID.ToString(), d);
+                            ne[2] = ne[2] + 1; //2 analysts
+                            effortDivided = Convert.ToDouble(effortoft3 / ne[2]);
+                            tempeffort[2] = Math.Ceiling(effortDivided);
+                        }                        
                     }
                     else
                     {
-                        if (effortoft1 > 0)
+                        if(nw.CurrentTask == 0)
                         {
-                            nw.currentTaskEffort = effortoft1;
-                            CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + "_T1", true, "T1", nw.ID.ToString(), d);
-                            int countert = 0;
-                            int initfactor = 1;
-                            int factor = 2;
-                            while (nw.SLA < effortoft1)
-                            {
-                                CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + countert + "_T1", true, "T1", nw.ID.ToString(), d);
-                                double effortDivided = (double)(effortoft1 * initfactor) / factor;
-                                effortoft1 = Convert.ToInt32(Math.Ceiling(effortDivided));
-                                factor++;
-                                initfactor++;
-                            }
+                            //This should be called only one. when currenttask is not yet assigned, we call this method that runs the algorithm to determine task analyst map based on SLA and total effort required
+                            //in case of sequential tasks only
+                            SequentialTaskAnalystMap_v2(sqlconnection, nw);
                         }
-                        else if (effortoft2 > 0)
+                        string up_query = "Update taskdata set CurrentTask = ";
+                        //set the currentTask
+                        if (nw.effortA > 0)
+                            nw.CurrentTask = 1;
+                        else if (nw.effortB > 0 && nw.effortA <= 0)
+                            nw.CurrentTask = 2;
+                        else if(nw.effortC > 0 && nw.effortB <= 0 && nw.effortA <= 0)
+                            nw.CurrentTask = 3;
+                        up_query = up_query + nw.CurrentTask + " where TaskID = '" + nw.ID + "'";
+                        MySqlCommand cmd_up = new MySqlCommand(up_query, sqlconnection);
+                        cmd_up.ExecuteNonQuery();
+                        //Start allocation of analysts 
+                        string teamname = string.Empty;
+                        string q = string.Empty;
+                        if (nw.CurrentTask == 1)
                         {
-                            nw.currentTaskEffort = effortoft2;
-                            CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + "_T2", true, "T2", nw.ID.ToString(), d);
-                            int countert = 0;
-                            int initfactor = 1;
-                            int factor = 2;
-                            while (nw.SLA < effortoft2)
-                            {
-                                CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + countert + "_T2", true, "T2", nw.ID.ToString(), d);
-                                double effortDivided = (double)(effortoft2 * initfactor) / factor;
-                                effortoft2 = Convert.ToInt32(Math.Ceiling(effortDivided));
-                                factor++;
-                                initfactor++;
-                            }
+                            q = "select Team1 from taskanalystmap  where TaskID = '" + nw.ID + "'";
+                            teamname = "T1";
                         }
-                        else if (effortoft3 > 0)
+                        else if(nw.CurrentTask == 2)
                         {
-                            nw.currentTaskEffort = effortoft3;
-                            CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + "_T3", true, "T3", nw.ID.ToString(), d);
-                            int countert = 0;
-                            int initfactor = 1;
-                            int factor = 2;
-                            while (nw.SLA < effortoft3)
-                            {
-                                CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + countert + "_T3", true, "T3", nw.ID.ToString(), d);
-                                double effortDivided = (double)(effortoft3 * initfactor) / factor;
-                                effortoft3 = Convert.ToInt32(Math.Ceiling(effortDivided));
-                                factor++;
-                                initfactor++;
-                            }
+                            teamname = "T2";
+                            q = "select team2 from taskanalystmap  where TaskID = '" + nw.ID + "'";
                         }
+                        else if(nw.CurrentTask == 3)
+                        {
+                            teamname = "T3";
+                            q = "select Team3 from taskanalystmap  where TaskID = '" + nw.ID + "'";
+                        }
+                        //get the total number of analysts to be created by reading from taskanalystmap
+                        int anlstCount = 0;
+                        cmd_up = new MySqlCommand(q, sqlconnection);
+                        MySqlDataReader mdr_1 = cmd_up.ExecuteReader();
+                        while(mdr_1.Read())
+                        {
+                            anlstCount = Convert.ToInt32(mdr_1.GetValue(0));
+                        }
+                        mdr_1.Close();
+
+                        for(int i =0; i < anlstCount; i++)
+                        {
+                            CreateAnalyst(sqlconnection, "An" + "_d" + d + "w_" + nw.ID + i + "_" + teamname, false, teamname, nw.ID.ToString(), d);
+                        }                                               
                     }
                 }
+                #endregion New Tasks
 
                 //Writing the report to a text file at the beginning of processing each task for any day
                 sw.WriteLine(string.Format("------------- Start Report of Day {0} - New tasks taken -----------", d));
@@ -480,7 +452,8 @@ namespace ProjectGK
                 sw.Write(Environment.NewLine);
                 mdr.Close();
 
-
+                #region Daily report - start
+                
                 //Query by team and task ID
                 sqlquery = string.Format("select tap.taskId, Analysts from taskanalystmap tap, taskdata td where tap.taskId = td.TaskId");
                 cmdl = new MySqlCommand(sqlquery, sqlconnection);
@@ -528,11 +501,35 @@ namespace ProjectGK
                                 ancsv[2] = ancsv[2] + " | " + val;
                         }
                     }
-                    for (int i = 0; i < 3; i++)
+                    if (string.IsNullOrEmpty(ancsv[2]))
                     {
-                        if (string.IsNullOrEmpty(ancsv[i]))
-                            ancsv[i] = "--Done--";
+                        if (string.IsNullOrEmpty(ancsv[1]))
+                        {
+                            if (string.IsNullOrEmpty(ancsv[0]))
+                                ancsv[2] = "--Done--";
+                            else
+                                ancsv[2] = "--Not started--";
+                        }
+                        else
+                            ancsv[2] = "--Not started--";
                     }
+                    if (string.IsNullOrEmpty(ancsv[1]))
+                    {
+                        if (string.IsNullOrEmpty(ancsv[0]))                        
+                            ancsv[1] = "--Done--";
+                        
+                        else
+                            ancsv[1] = "--Not started--";
+                    }
+
+                    if (string.IsNullOrEmpty(ancsv[0]))
+                        ancsv[0] = "--Done--";
+
+                    //for (int i = 0; i < 3; i++)
+                    //{
+                    //    if (string.IsNullOrEmpty(ancsv[i]))
+                    //        ancsv[i] = "--Done--";
+                    //}
                     columns = "," + taskidval + "," + ancsv[0] + "," + ancsv[1] + "," + ancsv[2];
                     csv.AppendLine(columns);
                     columns = string.Empty;
@@ -546,43 +543,181 @@ namespace ProjectGK
                 cmdl = new MySqlCommand(sqlquery, sqlconnection);
                 cmdl.ExecuteNonQuery();
 
+                #endregion Daily report - start
+
+                #region In progress Tasks
+
                 //Process the tasks in progress         
                 List<Work> oldTasks = ReturnTaskList(sqlconnection, "InProgress");
                 foreach (Work ow in oldTasks)
                 {
-                    if(ow.IsParallel == false)
+                    List<string> analystIDs = new List<string>();
+                    List<string> removedIDs = new List<string>();
+                    if (ow.IsParallel == false)
                     {
-                        if(ow.currentTaskEffort > 0)
+                        string team = string.Empty;
+                        string query1 = string.Empty;
+                        string query2 = string.Empty;
+                        string query3 = string.Empty;
+                        string query_s = string.Empty;
+                        if (ow.CurrentTask == 1)
                         {
-                            ow.currentTaskEffort = ow.currentTaskEffort - 
+                            team = "T1";
+                            query1 = "select EffortA from TaskData where TaskID = '" + ow.ID + "'";
+                            query2 = "select Team1 from TaskAnalystMap where TaskId = '" + ow.ID + "'";
+                            query3 = "update taskanalystmap set Team1 = ";
+                            query_s = "update TaskData set EffortA = ";
                         }
+                        if (ow.CurrentTask == 2)
+                        {
+                            team = "T2";
+                            query1 = "select EffortB from TaskData where TaskID = '" + ow.ID + "'";
+                            query2 = "select team2 from TaskAnalystMap where TaskId = '" + ow.ID + "'";
+                            query3 = "update taskanalystmap set Team2 = ";
+                            query_s = "update TaskData set EffortB = ";
+                        }
+                        if (ow.CurrentTask == 3)
+                        {
+                            team = "T3";
+                            query1 = "select EffortC from TaskData where TaskID = '" + ow.ID + "'";
+                            query2 = "select Team3 from TaskAnalystMap where TaskId = '" + ow.ID + "'";
+                            query3 = "update taskanalystmap set Team3 = ";
+                            query_s = "update TaskData set EffortC = ";
+                        }
+                        MySqlCommand cmd_s = new MySqlCommand(query1, sqlconnection);
+                        MySqlDataReader mySqlDataReader_s = cmd_s.ExecuteReader();
+                        int currenteffort = 0;
+                        while (mySqlDataReader_s.Read())
+                        {
+                            currenteffort = Convert.ToInt32(mySqlDataReader_s.GetValue(0));
+                        }
+                        mySqlDataReader_s.Close();
+
+
+                        int t = 0;
+                        cmd_s = new MySqlCommand(query2, sqlconnection);
+                        mySqlDataReader_s = cmd_s.ExecuteReader();
+                        while (mySqlDataReader_s.Read())
+                        {
+                            t = Convert.ToInt32(mySqlDataReader_s.GetValue(0));
+                        }
+                        mySqlDataReader_s.Close();
+                        int e = 0;
+                        if (currenteffort > 0)
+                            e = currenteffort - t;
+
+                        //When No.of analysts from a team working on that task is graeter than Currenteffort required
+                        if (e < 0)
+                            e = 0;
+
+                        //update database current effort value
+                        if (e == 0)
+                        {
+                            string query4 = query3 + e + " where TaskId = '" + ow.ID + "'";
+                            cmd_s = new MySqlCommand(query4, sqlconnection);
+                            cmd_s.ExecuteNonQuery();
+                            analystIDs = ReturnAnalystID(sqlconnection, ow.ID, team);
+                            if (analystIDs != null && analystIDs.Count != 0)
+                            {
+                                foreach (string anl in analystIDs)
+                                {
+                                    ReleaseAnalyst(sqlconnection, anl);
+                                    removedIDs.Add(anl);
+                                }
+                            }
+                        }
+
+                        //This is the case where effort required is less than number of analysts assigned
+                        if (e != 0 && e < t)
+                        {
+                            string query4 = query3 + e + " where TaskId = '" + ow.ID + "'";
+                            cmd_s = new MySqlCommand(query4, sqlconnection);
+                            cmd_s.ExecuteNonQuery();
+                            analystIDs = ReturnAnalystID(sqlconnection, ow.ID, team);
+                            for (int a = 0; a < t - e; a++)
+                            {
+                                ReleaseAnalyst(sqlconnection, analystIDs[a]);
+                                removedIDs.Add(analystIDs[a]);
+                            }
+                        }
+                        query_s = query_s + e + " where TaskID = '" + ow.ID + "'";
+                        cmd_s = new MySqlCommand(query_s, sqlconnection);
+                        cmd_s.ExecuteNonQuery();
+
+                        //Call method for updating current task value
+                        int[] eff = new int[3];
+                        string query_select = "select EffortA, EffortB, EffortC from TaskData where TaskID = '" + ow.ID + "'";
+                        MySqlCommand cmd_p = new MySqlCommand(query_select, sqlconnection);
+                        MySqlDataReader mySqlDataReader_p = cmd_p.ExecuteReader();
+                        int count = mySqlDataReader_p.FieldCount;
+                        while (mySqlDataReader_p.Read())
+                        {
+                            for (int j = 0; j < count; j++)
+                            {
+                                eff[j] = Convert.ToInt32(mySqlDataReader_p.GetValue(j));
+                            }
+                        }
+                        bool currenttaskchanged = false;
+                        mySqlDataReader_p.Close();
+                        if (eff[0] == 0 && ow.CurrentTask == 1)
+                        {
+                            if (eff[1] > 0)
+                            {
+                                ow.CurrentTask = 2;
+                                currenttaskchanged = true;
+                            }
+                            else if (eff[2] > 0)
+                            {
+                                ow.CurrentTask = 3;
+                                currenttaskchanged = true;
+                            }
+                        }
+                        else if (eff[1] == 0 && ow.CurrentTask == 2)
+                        {
+                            if (eff[2] > 0)
+                            {
+                                ow.CurrentTask = 3;
+                                currenttaskchanged = true;
+                            }
+                        }
+                        //else if (eff[2] == 0 && ow.CurrentTask == 3)
+                        // Delete the task
+                        if (currenttaskchanged)
+                        {
+                            string q = string.Format("update taskdata set taskstatus = 'New' where TaskId = '" + ow.ID + "'");
+                            cmd_s = new MySqlCommand(q, sqlconnection);
+                            cmd_s.ExecuteNonQuery();
+
+                        }
+
                     }
+
                     if (ow.IsParallel == true)
                     {
                         int[] currenteffort = new int[3];
-                        string query = "select EffortA, EffortB, EffortC from TaskData where TaskID = '" + ow.ID + "'";
-                        MySqlCommand cmd = new MySqlCommand(query, sqlconnection);
-                        MySqlDataReader mySqlDataReader = cmd.ExecuteReader();
-                        int fc = mySqlDataReader.FieldCount;
-                        while (mySqlDataReader.Read())
+                        string query_p = "select EffortA, EffortB, EffortC from TaskData where TaskID = '" + ow.ID + "'";
+                        MySqlCommand cmd_p = new MySqlCommand(query_p, sqlconnection);
+                        MySqlDataReader mySqlDataReader_p = cmd_p.ExecuteReader();
+                        int count = mySqlDataReader_p.FieldCount;
+                        while (mySqlDataReader_p.Read())
                         {
-                            for (int j = 0; j < fc; j++)
+                            for (int j = 0; j < count; j++)
                             {
-                                currenteffort[j] = Convert.ToInt32(mySqlDataReader.GetValue(j));
+                                currenteffort[j] = Convert.ToInt32(mySqlDataReader_p.GetValue(j));
                             }
                         }
-                        mySqlDataReader.Close();
+                        mySqlDataReader_p.Close();
                         int t1 = 0, t2 = 0, t3 = 0;
-                        query = "select Team1, team2, Team3 from TaskAnalystMap where TaskId = '" + ow.ID + "'";
-                        cmd = new MySqlCommand(query, sqlconnection);
-                        mySqlDataReader = cmd.ExecuteReader();
-                        while (mySqlDataReader.Read())
+                        query_p = "select Team1, team2, Team3 from TaskAnalystMap where TaskId = '" + ow.ID + "'";
+                        cmd_p = new MySqlCommand(query_p, sqlconnection);
+                        mySqlDataReader_p = cmd_p.ExecuteReader();
+                        while (mySqlDataReader_p.Read())
                         {
-                            t1 = Convert.ToInt32(mySqlDataReader.GetValue(0));
-                            t2 = Convert.ToInt32(mySqlDataReader.GetValue(1));
-                            t3 = Convert.ToInt32(mySqlDataReader.GetValue(2));
+                            t1 = Convert.ToInt32(mySqlDataReader_p.GetValue(0));
+                            t2 = Convert.ToInt32(mySqlDataReader_p.GetValue(1));
+                            t3 = Convert.ToInt32(mySqlDataReader_p.GetValue(2));
                         }
-                        mySqlDataReader.Close();
+                        mySqlDataReader_p.Close();
                         int e1 = 0, e2 = 0, e3 = 0;
                         if (currenteffort[0] > 0)
                             e1 = currenteffort[0] - t1;
@@ -600,15 +735,13 @@ namespace ProjectGK
                             e3 = 0;
 
 
-                        //In case of odd-even case, we may have 1 analyst extra. Handle that here
+                        //In case of odd-even, we may have 1 analyst extra. Handle that here
                         //which means no over-allocation of analysts
-                        List<string> analystIDs = new List<string>();
-                        List<string> removedIDs = new List<string>();
                         if (e1 == 0)
                         {
-                            query = "update taskanalystmap set Team1 = " + e1 + " where TaskId = '" + ow.ID + "'";
-                            cmd = new MySqlCommand(query, sqlconnection);
-                            cmd.ExecuteNonQuery();
+                            query_p = "update taskanalystmap set Team1 = " + e1 + " where TaskId = '" + ow.ID + "'";
+                            cmd_p = new MySqlCommand(query_p, sqlconnection);
+                            cmd_p.ExecuteNonQuery();
                             analystIDs = ReturnAnalystID(sqlconnection, ow.ID, "T1");
                             if (analystIDs != null && analystIDs.Count != 0)
                             {
@@ -621,9 +754,9 @@ namespace ProjectGK
                         }
                         if (e2 == 0)
                         {
-                            query = "update taskanalystmap set Team2 = " + e2 + " where TaskId = '" + ow.ID + "'";
-                            cmd = new MySqlCommand(query, sqlconnection);
-                            cmd.ExecuteNonQuery();
+                            query_p = "update taskanalystmap set Team2 = " + e2 + " where TaskId = '" + ow.ID + "'";
+                            cmd_p = new MySqlCommand(query_p, sqlconnection);
+                            cmd_p.ExecuteNonQuery();
                             analystIDs = ReturnAnalystID(sqlconnection, ow.ID, "T2");
                             if (analystIDs != null && analystIDs.Count != 0)
                             {
@@ -636,9 +769,9 @@ namespace ProjectGK
                         }
                         if (e3 == 0)
                         {
-                            query = "update taskanalystmap set Team3 = " + e3 + " where TaskId = '" + ow.ID + "'";
-                            cmd = new MySqlCommand(query, sqlconnection);
-                            cmd.ExecuteNonQuery();
+                            query_p = "update taskanalystmap set Team3 = " + e3 + " where TaskId = '" + ow.ID + "'";
+                            cmd_p = new MySqlCommand(query_p, sqlconnection);
+                            cmd_p.ExecuteNonQuery();
                             analystIDs = ReturnAnalystID(sqlconnection, ow.ID, "T3");
                             if (analystIDs != null && analystIDs.Count != 0)
                             {
@@ -651,106 +784,109 @@ namespace ProjectGK
                         }
                         if (e1 != 0 && e1 < t1)
                         {
-                            query = "update taskanalystmap set Team1 = " + e1 + " where TaskId = '" + ow.ID + "'";
-                            cmd = new MySqlCommand(query, sqlconnection);
-                            cmd.ExecuteNonQuery();
+                            query_p = "update taskanalystmap set Team1 = " + e1 + " where TaskId = '" + ow.ID + "'";
+                            cmd_p = new MySqlCommand(query_p, sqlconnection);
+                            cmd_p.ExecuteNonQuery();
                             analystIDs = ReturnAnalystID(sqlconnection, ow.ID, "T1");
                             for (int a = 0; a < t1 - e1; a++)
                             {
                                 ReleaseAnalyst(sqlconnection, analystIDs[a]);
                                 removedIDs.Add(analystIDs[a]);
-                                a = a + 1;
+                                //a = a + 1; GH:IMP:Commented this on 15th Aug 2019
                             }
                         }
                         analystIDs = new List<string>();
                         if (e2 != 0 && e2 < t2)
                         {
-                            query = "update taskanalystmap set Team2 = " + e2 + " where TaskId = '" + ow.ID + "'";
-                            cmd = new MySqlCommand(query, sqlconnection);
-                            cmd.ExecuteNonQuery();
+                            query_p = "update taskanalystmap set Team2 = " + e2 + " where TaskId = '" + ow.ID + "'";
+                            cmd_p = new MySqlCommand(query_p, sqlconnection);
+                            cmd_p.ExecuteNonQuery();
                             analystIDs = ReturnAnalystID(sqlconnection, ow.ID, "T2");
                             for (int a = 0; a < t2 - e2; a++) //(t2 < e2)
                             {
                                 ReleaseAnalyst(sqlconnection, analystIDs[a]);
                                 removedIDs.Add(analystIDs[a]);
-                                a = a + 1;
+                                //a = a + 1;
                             }
                         }
                         analystIDs = new List<string>();
                         if (e3 != 0 && e3 < t3)
                         {
-                            query = "update taskanalystmap set Team3 = " + e3 + " where TaskId = '" + ow.ID + "'";
-                            cmd = new MySqlCommand(query, sqlconnection);
-                            cmd.ExecuteNonQuery();
+                            query_p = "update taskanalystmap set Team3 = " + e3 + " where TaskId = '" + ow.ID + "'";
+                            cmd_p = new MySqlCommand(query_p, sqlconnection);
+                            cmd_p.ExecuteNonQuery();
                             analystIDs = ReturnAnalystID(sqlconnection, ow.ID, "T3");
                             for (int a = 0; a < t3 - e3; a++)
                             {
                                 ReleaseAnalyst(sqlconnection, analystIDs[a]);
                                 removedIDs.Add(analystIDs[a]);
-                                a = a + 1;
+                                //a = a + 1;
                             }
                         }
-                        if (removedIDs != null && removedIDs.Count != 0)
+
+                        query_p = "update TaskData set EffortA = " + e1 + ", EffortB = " + e2 + ", EffortC = " + e3 + " where TaskID = '" + ow.ID + "'";
+                        cmd_p = new MySqlCommand(query_p, sqlconnection);
+                        cmd_p.ExecuteNonQuery();
+                    }
+                    if (removedIDs != null && removedIDs.Count != 0)
+                    {
+                        string query_0 = "select analysts from taskanalystmap where TaskId = '" + ow.ID + "'";
+                        MySqlCommand cmd_0 = new MySqlCommand(query_0, sqlconnection);
+                        MySqlDataReader mySqlDataReader_0 = cmd_0.ExecuteReader();
+                        List<string> analystList = null;
+                        while (mySqlDataReader_0.Read())
                         {
-                            query = "select analysts from taskanalystmap where TaskId = '" + ow.ID + "'";
-                            cmd = new MySqlCommand(query, sqlconnection);
-                            mySqlDataReader = cmd.ExecuteReader();
-                            List<string> analystList = null;
-                            while (mySqlDataReader.Read())
-                            {
-                                string anl = mySqlDataReader.GetValue(0).ToString();
-                                analystList = new List<string>(anl.Split(','));
-                            }
-                            mySqlDataReader.Close();
-                            IEnumerable<string> newanalysts = analystList.Except(removedIDs);
-                            string newanalyst = string.Empty;
-                            foreach (string anst in newanalysts)
-                            {
-                                if (!string.IsNullOrEmpty(anst))
-                                    newanalyst = anst + "," + newanalyst;
-                            }
-                            query = string.Format("update taskanalystmap set Analysts = \"{0}\" where TaskId = '{1}'", newanalyst, ow.ID);
-                            cmd = new MySqlCommand(query, sqlconnection);
-                            cmd.ExecuteNonQuery();
+                            string anl = mySqlDataReader_0.GetValue(0).ToString();
+                            analystList = new List<string>(anl.Split(','));
                         }
-                        query = "update TaskData set EffortA = " + e1 + ", EffortB = " + e2 + ", EffortC = " + e3 + " where TaskID = '" + ow.ID + "'";
-                        cmd = new MySqlCommand(query, sqlconnection);
-                        cmd.ExecuteNonQuery();
-                        //}
-                        //GH: Moved recently. As the task should be delelted from the 2 tables on the same day after finishing all effort contribution
-                        currenteffort = new int[3];
-                        query = "select EffortA, EffortB, EffortC from TaskData where TaskID = '" + ow.ID + "'";
-                        cmd = new MySqlCommand(query, sqlconnection);
-                        mySqlDataReader = cmd.ExecuteReader();
-                        fc = mySqlDataReader.FieldCount;
-                        while (mySqlDataReader.Read())
+                        mySqlDataReader_0.Close();
+                        IEnumerable<string> newanalysts = analystList.Except(removedIDs);
+                        string newanalyst = string.Empty;
+                        foreach (string anst in newanalysts)
                         {
-                            for (int j = 0; j < fc; j++)
-                            {
-                                currenteffort[j] = Convert.ToInt32(mySqlDataReader.GetValue(j));
-                            }
+                            if (!string.IsNullOrEmpty(anst))
+                                newanalyst = anst + "," + newanalyst;
                         }
-                        mySqlDataReader.Close();
-                        if (currenteffort[0] == 0 && currenteffort[1] == 0 && currenteffort[2] == 0)
+                        query_0 = string.Format("update taskanalystmap set Analysts = \"{0}\" where TaskId = '{1}'", newanalyst, ow.ID);
+                        cmd_0 = new MySqlCommand(query_0, sqlconnection);
+                        cmd_0.ExecuteNonQuery();
+                    }
+                    //GH: Moved recently. As the task should be delelted from the 2 tables on the same day after finishing all effort contribution
+                    int[] ce = new int[3];
+                    string query = "select EffortA, EffortB, EffortC from TaskData where TaskID = '" + ow.ID + "'";
+                    MySqlCommand cmd = new MySqlCommand(query, sqlconnection);
+                    MySqlDataReader mySqlDataReader = cmd.ExecuteReader();
+                    int fc = mySqlDataReader.FieldCount;
+                    while (mySqlDataReader.Read())
+                    {
+                        for (int j = 0; j < fc; j++)
                         {
-                            query = "delete from TaskData where TaskID = '" + ow.ID + "'";
-                            cmd = new MySqlCommand(query, sqlconnection);
-                            cmd.ExecuteNonQuery();
-                            query = "delete from TaskAnalystMap where TaskID = '" + ow.ID + "'";
-                            cmd = new MySqlCommand(query, sqlconnection);
-                            cmd.ExecuteNonQuery();
-                            //GH: Similar code should be written below
-                            //Move this to a seperate method
-                            List<string> analystIDs1 = new List<string>();
-                            analystIDs1 = ReturnAnalystID(sqlconnection, ow.ID, null);
-                            foreach (string analystID in analystIDs1)
-                            {
-                                UpdateTasksListForAnAnalyst(sqlconnection, analystID, ow.ID.ToString());
-                                ReleaseAnalyst(sqlconnection, analystID);
-                            }
+                            ce[j] = Convert.ToInt32(mySqlDataReader.GetValue(j));
                         }
                     }
+                    mySqlDataReader.Close();
+                    if (ce[0] == 0 && ce[1] == 0 && ce[2] == 0)
+                    {
+                        query = "delete from TaskData where TaskID = '" + ow.ID + "'";
+                        cmd = new MySqlCommand(query, sqlconnection);
+                        cmd.ExecuteNonQuery();
+                        query = "delete from TaskAnalystMap where TaskID = '" + ow.ID + "'";
+                        cmd = new MySqlCommand(query, sqlconnection);
+                        cmd.ExecuteNonQuery();
+                        //GH: Similar code should be written below
+                        //Move this to a seperate method
+                        List<string> analystIDs1 = new List<string>();
+                        analystIDs1 = ReturnAnalystID(sqlconnection, ow.ID, null);
+                        foreach (string analystID in analystIDs1)
+                        {
+                            UpdateTasksListForAnAnalyst(sqlconnection, analystID, ow.ID.ToString());
+                            ReleaseAnalyst(sqlconnection, analystID);
+                        }
+                    }                    
                 }
+                #endregion In progress Tasks
+
+                #region DailyReport
                 //Writing the report to a text file at the end of the day
 
                 sw.WriteLine(string.Format("------------- End of the day Report - Day {0} -----------", d));
@@ -771,7 +907,10 @@ namespace ProjectGK
                 }
                 sw.Write(Environment.NewLine);
                 mdr.Close();
+                #endregion DailyReport
             }
+
+            #region FinalReport
             sw.WriteLine("***************************Report of No.of Analysts**************************** ");
             int count1, count2, count3;
 
@@ -794,6 +933,7 @@ namespace ProjectGK
             sqlconnection.Close();
             sw.Close();
             return AnalystMap;
+            #endregion FinalReport
         }
 
 
@@ -840,17 +980,47 @@ namespace ProjectGK
         }
         private List<Work> ReturnTaskList(MySqlConnection sqlconnection, string status)
         {
+            CheckForDummyTasks(sqlconnection);
             List<Work> Tasklist = new List<Work>();
             string query = string.Format("select * from TaskData where TaskStatus = \"{0}\"", status);
             MySqlCommand cmd = new MySqlCommand(query, sqlconnection);
             MySqlDataReader mySqlDataReader = cmd.ExecuteReader();
             while (mySqlDataReader.Read())
             {
-                Work task = new Work(Convert.ToInt32(mySqlDataReader.GetValue(0)), mySqlDataReader.GetValue(1).ToString(), Convert.ToInt32(mySqlDataReader.GetValue(2)), Convert.ToInt32(mySqlDataReader.GetValue(3)), Convert.ToInt32(mySqlDataReader.GetValue(4)), Convert.ToInt32(mySqlDataReader.GetValue(5)), Convert.ToInt32(mySqlDataReader.GetValue(6)), mySqlDataReader.GetValue(7).ToString());
+                //public Work(int Id, bool isParallel, string level, int sla, int eA, int eB, int eC, int startDay, string status, int currentTask)
+                Work task = new Work(Convert.ToInt32(mySqlDataReader["TaskId"]),
+                    Convert.ToBoolean(mySqlDataReader["IsParallel"]),
+                    mySqlDataReader["CriticalityLevel"].ToString(),
+                    Convert.ToInt32(mySqlDataReader["SLA"]), 
+                    Convert.ToInt32(mySqlDataReader["EffortA"]), Convert.ToInt32(mySqlDataReader["EffortB"]), Convert.ToInt32(mySqlDataReader["EffortC"]),
+                    Convert.ToInt32(mySqlDataReader["StartDay"]), mySqlDataReader["TaskStatus"].ToString(),
+                    Convert.ToInt32(mySqlDataReader["CurrentTask"]));
+
                 Tasklist.Add(task);
             }
             mySqlDataReader.Close();
             return Tasklist;
+        }
+        private void CheckForDummyTasks(MySqlConnection sqlconnection)
+        {
+            List<int> dummytaskIDs = new List<int>();
+            string query = string.Format("SELECT TaskID FROM TASKDATA WHERE EFFORTA =0 AND EFFORTB= 0 AND EFFORTC = 0");
+            MySqlCommand cmd = new MySqlCommand(query, sqlconnection);
+            MySqlDataReader mySqlDataReader = cmd.ExecuteReader();
+            while (mySqlDataReader.Read())
+            {
+                dummytaskIDs.Add(Convert.ToInt32(mySqlDataReader["TaskId"]));
+            }
+            mySqlDataReader.Close();
+            foreach(int ti in dummytaskIDs)
+            {
+                query = string.Format("delete from taskdata where taskID = " + ti);
+                MySqlCommand mySqlCommand1 = new MySqlCommand(query, sqlconnection);
+                mySqlCommand1.ExecuteNonQuery();
+                query = string.Format("delete from taskanalystmap where taskID = " + ti);
+                mySqlCommand1 = new MySqlCommand(query, sqlconnection);
+                mySqlCommand1.ExecuteNonQuery();
+            }
         }
        
         private bool CheckforFreeAnalysts(string team, out string freenanalyst)
@@ -887,7 +1057,7 @@ namespace ProjectGK
             return false;
 
         }
-        private void CreateAnalyst(MySqlConnection sqlconnection, string name, bool status, string team, string workMap, int sd)
+        private void CreateAnalyst(MySqlConnection sqlconnection, string name, bool isparallel, string team, string workMap, int sd)
         {
             string analystName = name;
             string getvaldr = string.Empty;
@@ -927,39 +1097,181 @@ namespace ProjectGK
                     getvaldr = analystName;
             }
             dr.Close();
-            string teamname = string.Empty;
-            if (string.Compare(team, "T1") == 0)
-                teamname = "Team1";
-            else if (string.Compare(team, "T2") == 0)
-                teamname = "Team2";
-            else if (string.Compare(team, "T3") == 0)
-                teamname = "Team3";
-            //Updating the teamsize for each new analyst created w.r.t the task ID 
-            sqlquery = "select " + teamname + " from taskanalystmap where TaskID = '" + workMap + "'";
-            mySqlCommand = new MySqlCommand(sqlquery, sqlconnection);
-            dr = mySqlCommand.ExecuteReader();
-            int teamsize = 0;
-            while (dr.Read())
+            if (isparallel)
             {
-               teamsize = Convert.ToInt32(dr[teamname]);
+                string teamname = string.Empty;
+                if (string.Compare(team, "T1") == 0)
+                    teamname = "Team1";
+                else if (string.Compare(team, "T2") == 0)
+                    teamname = "Team2";
+                else if (string.Compare(team, "T3") == 0)
+                    teamname = "Team3";
+                //Updating the teamsize for each new analyst created w.r.t the task ID 
+                sqlquery = "select " + teamname + " from taskanalystmap where TaskID = '" + workMap + "'";
+                mySqlCommand = new MySqlCommand(sqlquery, sqlconnection);
+                dr = mySqlCommand.ExecuteReader();
+                int teamsize = 0;
+                while (dr.Read())
+                {
+                    teamsize = Convert.ToInt32(dr[teamname]);
+                }
+                dr.Close();
+                teamsize = teamsize + 1;
+
+                sqlquery = string.Format("Update taskanalystmap set " + teamname + " = " + teamsize + " where TaskID = '" + workMap + "'");
+                mySqlCommand = new MySqlCommand(sqlquery, sqlconnection);
+                mySqlCommand.ExecuteNonQuery();
             }
-            dr.Close();
-            teamsize = teamsize + 1;
-
-            sqlquery = string.Format("Update taskanalystmap set " + teamname + " = " + teamsize + " where TaskID = '" + workMap + "'");
-            mySqlCommand = new MySqlCommand(sqlquery, sqlconnection);
-            mySqlCommand.ExecuteNonQuery();
-
-
+            //Updating the Analyst list for each new analyst created w.r.t the task ID 
             string lastchar = getvaldr.Trim(); ;
             if (lastchar[lastchar.Length - 1] == ',')
             {
                 lastchar = lastchar.Substring(0, lastchar.Length - 1);
-            }
-
-            //Updating the Analyst list for each new analyst created w.r.t the task ID 
+            }            
             sqlquery = string.Format("Update taskanalystmap set Analysts = '" + lastchar + "' where TaskID = '" + workMap + "'");
             mySqlCommand = new MySqlCommand(sqlquery, sqlconnection);
+            mySqlCommand.ExecuteNonQuery();
+        }
+        private void SequentialTaskAnalystMap_v2(MySqlConnection sqlconnection, Work task)
+        {
+            int totaleffort = task.effortA + task.effortB + task.effortC;
+
+            int[] people = new int[3] { (task.effortA > 0) ? 1 :0, (task.effortB > 0) ? 1 : 0, (task.effortC > 0) ? 1 : 0 };
+            int finishline = task.SLA;
+            if (totaleffort > finishline)
+            {
+                switch(finishline)
+                {
+                    case 3: //priority - critical
+                        people = new int[3] { task.effortA, task.effortB, task.effortC };
+                        break;
+                    default:
+                        people = SequentialTaskAnalystMapAllocation(finishline, new int[] { task.effortA, task.effortB, task.effortC }, totaleffort);
+                        break;
+                }
+            }
+            string sqlquery = string.Format("Update taskanalystmap set Team1 = " + people[0] + ", Team2 = " + people[1] + ", Team3 = " + people[2] + " where TaskID = '" + task.ID + "'");
+            MySqlCommand mySqlCommand = new MySqlCommand(sqlquery, sqlconnection);
+            mySqlCommand.ExecuteNonQuery();
+        }
+
+        private int[] SequentialTaskAnalystMapAllocation(int sla, int[] effort, int total, bool repeat = false)
+        {
+            int neweffort = 0;
+            int[] people = new int[3];
+            int[] peepdays = new int[3];
+            for(int i =0; i <3; i++)
+            {
+                if (effort[i] == 0)
+                {
+                    people[i] = 0;
+                }
+                else
+                {
+                    double val = (Convert.ToDouble(effort[i]) / total) * sla;
+                    if (repeat == false)
+                    {
+                        people[i] = Convert.ToInt32(Math.Floor(val));
+                    }
+                    else
+                    {
+                        people[i] = Convert.ToInt32(Math.Ceiling(val));
+                    }
+                    if (people[i] == 0)  // to address thecase where math.floor applied on a decimal < 1  
+                        people[i] = 1;
+                    if (people[i] > effort[i]) // address over-allocation. Max number of people should not exceed man days required
+                        people[i] = effort[i];
+                    double peopledaysval = Convert.ToDouble(effort[i]) / (people[i]); //avoid divide by zero
+                    peepdays[i] = Convert.ToInt32(Math.Ceiling(peopledaysval));
+                    neweffort = neweffort + peepdays[i];
+                }
+            }
+            if(neweffort > sla)
+            {
+                SequentialTaskAnalystMapAllocation(sla, effort, total, true);
+            }
+            if (repeat)
+            {
+                //add one more analyst for the team that requires max effort
+                int maxIndex = effort.ToList().IndexOf(effort.Max());
+                people[maxIndex] = people[maxIndex] + 1;
+                if (people[maxIndex] > effort[maxIndex]) // address over-allocation. Max number of people should not exceed man days required
+                    people[maxIndex] = effort[maxIndex];
+            }
+            return people;
+        }
+
+        private void SequentialTaskAnalystMap(MySqlConnection sqlconnection, int taskID)
+        {
+            string query = "select EffortA, EffortB, EffortC, SLA from TaskData where TaskID = '" + taskID + "'";
+            MySqlCommand cmd = new MySqlCommand(query, sqlconnection);
+            MySqlDataReader mySqlDataReader = cmd.ExecuteReader();
+            int[] ce = new int[4];
+            int fc = mySqlDataReader.FieldCount;
+            while (mySqlDataReader.Read())
+            {
+                for (int j = 0; j < fc; j++)
+                {
+                    ce[j] = Convert.ToInt32(mySqlDataReader.GetValue(j));
+                }
+            }
+            mySqlDataReader.Close();
+
+            int[] people = new int[3] { 1, 1, 1 };
+            int totaleffort = 0;
+            for(int i=0; i<3; i++)
+            {
+                totaleffort = totaleffort + ce[i];
+            }
+            if (totaleffort > ce[3])
+            {
+                double[] peopledays = new double[3];
+                int neweffort = 0;
+                for(int i = 0; i<3; i++)
+                {
+                    if (ce[i] == 0)
+                    {
+                        people[i] = 0;
+                    }
+                    else
+                    {
+                        double val = (ce[i] / totaleffort) * ce[3];
+                        people[i] = Convert.ToInt32(Math.Floor(val));
+                        if (people[i] == 0)
+                            people[i] = 1;
+                        double peopledaysval = ce[i] / (people[i]); //avoid divide by zero
+                        peopledays[i] = Math.Ceiling(peopledaysval);
+                        neweffort = neweffort + Convert.ToInt32(peopledays[i]);
+                    }
+                }
+                //deadline still less than new effort
+                if(ce[3] < neweffort)
+                {
+                    neweffort = 0;
+                    for (int i = 0; i < 3; i++)
+                    {
+                        if (ce[i] == 0)
+                        {
+                            people[i] = 0;
+                        }
+                        else
+                        {
+                            double val = (ce[i] / totaleffort) * ce[3];
+                            people[i] = Convert.ToInt32(Math.Ceiling(val)); // This is the difference between 2 for loops
+                            if (people[i] == 0) // This is to avoid such case where math.floor on 0.88 gives 0.
+                                people[i] = 1;
+                            double peopledaysval = ce[i] / (people[i]);  //avoid divide by zero
+                            peopledays[i] = Math.Ceiling(peopledaysval);
+                            neweffort = neweffort + Convert.ToInt32(peopledays[i]);
+                        }
+                    }
+                    //add one more analyst for the team that requires max effort
+                    int maxIndex = ce.ToList().IndexOf(ce.Max());
+                    people[maxIndex] = people[maxIndex] + 1;
+                }
+            }
+            string sqlquery = string.Format("Update taskanalystmap set Team1 = " + people[0] + ", Team2 = " + people[1] + ", Team3 = " + people[2] + " where TaskID = '" + taskID + "'");
+            MySqlCommand mySqlCommand = new MySqlCommand(sqlquery, sqlconnection);
             mySqlCommand.ExecuteNonQuery();
         }
         private void UpdateTasksListForAnAnalyst(MySqlConnection sqlconnection, string analystID, string taskID)
@@ -981,8 +1293,6 @@ namespace ProjectGK
             {
                 lastchar = lastchar.Substring(0, lastchar.Length - 1);
             }
-
-
             query = string.Format("update AnalystData set TasksDone = \"{0}\" where AnalystID = \"{1}\"", lastchar, analystID);
             cmd = new MySqlCommand(query, sqlconnection);
             cmd.ExecuteNonQuery();
@@ -1056,13 +1366,13 @@ namespace ProjectGK
             catch (Exception)
             {//do nothing
             }
-            sqlquery = string.Format("CREATE TABLE IF NOT EXISTS TaskData(TaskId INT(20), IsParallel Boolean, CriticalityLevel VARCHAR(20), SLA INT(20), EffortA INT(20), EffortB INT(20), EffortC INT(20), StartDay INT(20), TaskStatus VARCHAR(250))");
+            sqlquery = string.Format("CREATE TABLE IF NOT EXISTS TaskData(TaskId INT(20), IsParallel Boolean, CriticalityLevel VARCHAR(20), SLA INT(20), EffortA INT(20), EffortB INT(20), EffortC INT(20), StartDay INT(20), TaskStatus VARCHAR(250), CurrentTask INT(5))");
             cmd = new MySqlCommand(sqlquery, sqlconnection);
             cmd.ExecuteNonQuery();
-            sqlquery = string.Format("CREATE TABLE IF NOT EXISTS TaskAnalystMap(TaskId INT(20), Team1 INT(20), Team2 INT(20), Team3 INT(20), Analysts VARCHAR(2000))");
+            sqlquery = string.Format("CREATE TABLE IF NOT EXISTS TaskAnalystMap(TaskId INT(20), Team1 INT(20), Team2 INT(20), Team3 INT(20), Analysts LONGTEXT)");
             cmd = new MySqlCommand(sqlquery, sqlconnection);
             cmd.ExecuteNonQuery();
-            sqlquery = string.Format("CREATE TABLE IF NOT EXISTS AnalystData(AnalystId VARCHAR(20), Team VARCHAR(50), TaskMap INT(20), StartDay INT(20), TasksDone VARCHAR(2000))");
+            sqlquery = string.Format("CREATE TABLE IF NOT EXISTS AnalystData(AnalystId VARCHAR(20), Team VARCHAR(50), TaskMap INT(20), StartDay INT(20), TasksDone LONGTEXT)");
             cmd = new MySqlCommand(sqlquery, sqlconnection);
             cmd.ExecuteNonQuery();
         }
